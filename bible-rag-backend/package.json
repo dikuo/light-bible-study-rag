@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
+    "@pinecone-database/pinecone": "^8.0.0",
+    "openai": "^6.44.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3"
+  }
+}

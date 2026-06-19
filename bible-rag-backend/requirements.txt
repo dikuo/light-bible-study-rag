@@ -1,0 +1,7 @@
+# requirements.txt
+
+openai
+pinecone
+anthropic
+python-dotenv
+requests
