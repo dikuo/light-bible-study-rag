@@ -3,7 +3,6 @@
 An AI-powered Bible study app built on Retrieval-Augmented Generation (RAG). Ask any question, and the app retrieves the most relevant passages from the entire World English Bible (31,000+ verses, fully embedded and indexed), then generates a grounded, cited answer using only those retrieved passages — never the model's own assumptions.
 
 🔗 **Live Demo:** https://yourwordsarelight.vercel.app
-🔗 **GitHub:** https://github.com/dikuo/light-bible-study-rag
 
 ## Features
 

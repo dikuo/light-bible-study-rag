@@ -14,6 +14,7 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [language, setLanguage] = useState<'en' | 'zh'>('en')
 
   const submitHandler = async () => {
     try {
@@ -62,8 +63,14 @@ export default function Home() {
           ✦
         </div>
         <span className="text-sm font-medium text-[#412402]">
-          Light — Bible Study
+          Light — {language === 'en' ? 'Bible Study' : '圣经学习'}
         </span>
+        <button
+          onClick={() => language === 'en' ? setLanguage('zh') : setLanguage('en')}
+          className="ml-auto text-xs text-[#412402] border border-[#E8D8B0] rounded-full px-3 py-1 hover:bg-[#EF9F27] hover:text-white transition-colors"
+        >
+          {language === 'en' ? '中文' : 'EN'}
+        </button>
       </header>
 
       <div className="w-full max-w-2xl px-4 pt-8 pb-40 flex-1">
@@ -73,24 +80,38 @@ export default function Home() {
               ✦
             </div>
             <h1 className="text-xl font-medium text-gray-900 mt-4">
-              Ask the Bible a question
+              {language === 'en'
+                ? 'Ask the Bible a question'
+                : '圣经问答'
+              }
             </h1>
             <p className="text-sm text-gray-500 mt-2 max-w-sm leading-relaxed">
-              Grounded answers from scripture — every response cited to the verse.
+              {language === 'en'
+                ? 'Grounded answers from scripture — every response cited to the verse.'
+                : '以经文为根基 — 每个回答都有章节引用。'
+              }
             </p>
             <div className="flex flex-wrap gap-2 justify-center mt-2">
-              {[
-                "What does the Bible say about work?",
-                "How should I treat my colleagues?",
-                "What is faith?",
-                "What does the Bible say about love?"
-              ].map(suggestion => (
+              {(language === 'en'
+                ? [
+                  "What does the Bible say about work?",
+                  "How should I treat my colleagues?",
+                  "What is faith?",
+                  "What does the Bible say about love?"
+                ]
+                : [
+                  "圣经怎么说关于爱？",
+                  "信心是什么意思？",
+                  "如何面对困难？",
+                  "神对我有什么计划？"
+                ]
+              ).map(suggestion => (
                 <button
                   key={suggestion}
                   onClick={() => {
                     setQuestion(suggestion)
                     textareaRef.current?.focus()
-                  }}  
+                  }}
                   className="rounded-full border border-gray-200 text-sm text-gray-500 bg-white px-4 py-1.5 cursor-pointer hover:bg-gray-50"
                 >
                   {suggestion}
@@ -109,12 +130,15 @@ export default function Home() {
         {loading && (
           <div className="flex items-center gap-3 py-4">
             <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse"/>
-              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse" style={{animationDelay: '0.2s'}}/>
-              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse" style={{animationDelay: '0.4s'}}/>
+              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse" style={{ animationDelay: '0.2s' }} />
+              <div className="w-2 h-2 rounded-full bg-[#EF9F27] animate-pulse" style={{ animationDelay: '0.4s' }} />
             </div>
             <span className="text-sm text-gray-400">
-              Searching scripture...
+              {language === 'en'
+                ? 'Searching scripture...'
+                : '搜索经文中...'
+              }
             </span>
           </div>
         )}
@@ -151,8 +175,8 @@ export default function Home() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#FDF6EC] border-t border-[#E8D8B0] p-4 flex justify-center">
         <div className="w-full max-w-2xl flex items-end gap-3 bg-[#FAF7F2] border border-[#E8D8B0] rounded-xl px-3 py-2">
-          <textarea 
-            value={question} 
+          <textarea
+            value={question}
             onChange={e => setQuestion(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -161,18 +185,17 @@ export default function Home() {
               }
             }}
             ref={textareaRef}
-            placeholder="Write a question..."
+            placeholder={language === 'en' ? "Write a question..." : '在这里提问...'}
             rows={1}
             className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gray-900 placeholder-[#B0956A]"
           />
-          <button 
+          <button
             onClick={submitHandler}
             disabled={!question.trim() || loading}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-              !question.trim() || loading
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${!question.trim() || loading
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : 'bg-[#EF9F27] text-[#412402] cursor-pointer'
-            }`}
+              }`}
           >
             ↑
           </button>

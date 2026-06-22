@@ -14,7 +14,7 @@ const pc = new Pinecone({
 })
 const index = pc.index(process.env.PINECONE_INDEX_NAME!)
 
-const rateLimit = new Map<string, {count:number, resetTime: number}>()
+const rateLimit = new Map<string, { count: number, resetTime: number }>()
 const MAX_REQUESTS = 5
 const WINDOW_MS = 60 * 1000
 
@@ -22,20 +22,20 @@ export async function POST(request: Request) {
     try {
         const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
         if (!rateLimit.has(ip)) {
-            rateLimit.set(ip, {count:1, resetTime: Date.now() + WINDOW_MS})
+            rateLimit.set(ip, { count: 1, resetTime: Date.now() + WINDOW_MS })
         } else {
             const currStatus = rateLimit.get(ip)!
             if (Date.now() > currStatus.resetTime) {
-                rateLimit.set(ip, {count: 1, resetTime: Date.now() + WINDOW_MS})
+                rateLimit.set(ip, { count: 1, resetTime: Date.now() + WINDOW_MS })
             }
             else if (currStatus.count >= MAX_REQUESTS) {
                 return NextResponse.json(
-                    {error: 'You reached the limit of rate now. Please try it again later.'},
-                    {status: 429}
+                    { error: 'You reached the limit of rate now. Please try it again later.' },
+                    { status: 429 }
                 )
-            } 
+            }
             else {
-                rateLimit.set(ip, {...currStatus, count: currStatus.count + 1})
+                rateLimit.set(ip, { ...currStatus, count: currStatus.count + 1 })
             }
         }
 
@@ -56,10 +56,14 @@ export async function POST(request: Request) {
         })
         const question_embedding = response.data[0].embedding
 
+        const isChinese = /[\u4e00-\u9fff]/.test(question)
+        const language = isChinese ? 'zh' : 'en'
+
         const results = await index.query({
             vector: question_embedding,
             topK: 5,
-            includeMetadata: true
+            includeMetadata: true,
+            namespace: language === 'en' ? '' : 'chinese'
         })
 
         const texts = results.matches.map(r => {
@@ -69,6 +73,10 @@ export async function POST(request: Request) {
         })
 
         const context = texts.map((t, index) => `${index + 1}. ${t}`).join('\n')
+
+        const chineseInstruction = language === 'zh'
+            ? '\n- Answer in Simplified Chinese'
+            : ''
 
         const prompt = `
             You are a helpful Bible study assistant.
@@ -82,7 +90,8 @@ export async function POST(request: Request) {
             - Answer using ONLY the passages provided above
             - Cite specific verse references in your answer
             - If the passages don't fully answer the question, say so honestly
-        `
+            ${chineseInstruction}
+            `
 
         const message = await claude_client.messages.create({
             model: 'claude-sonnet-4-6',
