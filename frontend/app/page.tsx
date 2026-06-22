@@ -158,7 +158,7 @@ export default function Home() {
             {result!.passages.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-                  Sources
+                  {language === 'en' ? 'Sources' : '经文出处'}
                 </p>
                 <div className="flex flex-col gap-2">
                   {result?.passages.map((p, i) => (
