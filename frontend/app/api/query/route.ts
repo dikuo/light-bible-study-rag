@@ -2,6 +2,8 @@ import OpenAI from "openai"
 import Anthropic from "@anthropic-ai/sdk"
 import { Pinecone } from "@pinecone-database/pinecone"
 import { NextResponse } from "next/server"
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
 
 const openai_client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY!
@@ -14,29 +16,21 @@ const pc = new Pinecone({
 })
 const index = pc.index(process.env.PINECONE_INDEX_NAME!)
 
-const rateLimit = new Map<string, { count: number, resetTime: number }>()
-const MAX_REQUESTS = 5
-const WINDOW_MS = 60 * 1000
+const rateLimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(5, "1 h")
+})
 
 export async function POST(request: Request) {
     try {
         const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
-        if (!rateLimit.has(ip)) {
-            rateLimit.set(ip, { count: 1, resetTime: Date.now() + WINDOW_MS })
-        } else {
-            const currStatus = rateLimit.get(ip)!
-            if (Date.now() > currStatus.resetTime) {
-                rateLimit.set(ip, { count: 1, resetTime: Date.now() + WINDOW_MS })
-            }
-            else if (currStatus.count >= MAX_REQUESTS) {
-                return NextResponse.json(
-                    { error: 'You reached the limit of rate now. Please try it again later.' },
-                    { status: 429 }
-                )
-            }
-            else {
-                rateLimit.set(ip, { ...currStatus, count: currStatus.count + 1 })
-            }
+        const { success } = await rateLimit.limit(ip)
+
+        if (!success) {
+            return NextResponse.json(
+                { error: 'You reached the limit of rate now. Please try it again later.' },
+                { status: 429 }
+            )
         }
 
         const data = await request.json()

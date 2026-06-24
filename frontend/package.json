@@ -12,6 +12,8 @@
     "@anthropic-ai/sdk": "^0.104.2",
     "@pinecone-database/pinecone": "^8.0.0",
     "@tailwindcss/typography": "^0.5.20",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "next": "16.2.9",
     "openai": "^6.44.0",
     "react": "19.2.4",
