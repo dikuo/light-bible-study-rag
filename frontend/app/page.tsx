@@ -2,16 +2,17 @@
 
 import { useState, useRef, useEffect } from "react"
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from "remark-gfm"
 
-type Result = {
-  answer: string
-  passages: string[]
+type Message = {
+  role: 'user' | 'assistant',
+  content: string,
+  passages?: string[]
 }
 
 export default function Home() {
   const [question, setQuestion] = useState('')
-  const [submittedQeustion, setSubmittedQuestion] = useState('')
-  const [result, setResult] = useState<Result | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [language, setLanguage] = useState<'en' | 'zh'>('en')
@@ -20,14 +21,16 @@ export default function Home() {
     try {
       if (!question.trim() || loading) return
       setError(null)
-      setResult(null)
       setLoading(true)
-      setSubmittedQuestion(question)
+      setMessages(prev => [...prev, { role: 'user', content: question }])
 
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question })
+        body: JSON.stringify({
+          question,
+          messages: messages.slice(-6)
+        })
       })
       const data = await res.json()
 
@@ -37,7 +40,7 @@ export default function Home() {
       }
 
       setQuestion('')
-      setResult({ answer: data.answer, passages: data.passages })
+      setMessages(prev => [...prev, { role: 'assistant', content: data.answer, passages: data.passages }])
 
     } catch (error) {
       console.error(error)
@@ -48,13 +51,11 @@ export default function Home() {
   }
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const answerRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (result && answerRef.current) {
-      answerRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [result])
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   return (
     <main className="min-h-screen flex flex-col items-center bg-[#FAF7F2]">
@@ -74,7 +75,7 @@ export default function Home() {
       </header>
 
       <div className="w-full max-w-2xl px-4 pt-8 pb-40 flex-1">
-        {!result && !loading && !error && (
+        {messages.length <= 0 && !loading && !error && (
           <div className="flex flex-col items-center pt-20 text-center gap-4">
             <div className="w-12 h-12 rounded-full bg-[#EF9F27] flex items-center justify-center text-sm font-medium text-[#412402] logo-spin cursor-pointer transition-all duration-300">
               ✦
@@ -120,11 +121,46 @@ export default function Home() {
             </div>
           </div>
         )}
-        {(loading || result || error) && submittedQeustion && (
-          <div className="flex justify-end mb-6">
-            <div className="bg-[#EF9F27] text-[#412402] rounded-2xl rounded-br-sm px-4 py-2.5 text-sm max-w-[80%] leading-relaxed">
-              {submittedQeustion}
-            </div>
+        {messages.length > 0 && (
+          <div className="flex flex-col gap-6">
+            {messages.map((message, i) => {
+              const isLatestUserMessage = message.role === 'user' && i === messages.length - 1
+
+              return message.role === 'user' ? (
+                <div 
+                  key={i} 
+                  ref={isLatestUserMessage ? bottomRef : null}
+                  className="flex justify-end"
+                >
+                  <div className="bg-[#EF9F27] text-[#412402] rounded-2xl rounded-br-sm px-4 py-2.5 text-sm max-w-[80%] leading-relaxed">
+                    {message.content}
+                  </div>
+                </div>
+              ) : (
+                <div key={i}>
+                  <div className="bg-white border rounded-lg px-4 py-3 text-sm leading-relaxed prose prose-sm max-w-none prose-p:text-gray-800 prose-headings:text-gray-900 prose-strong:text-gray-900 prose-headings:text-base prose-headings:font-medium prose-p:my-1 prose-headings:my-2 prose-hr:my-2">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                  {message.passages && message.passages.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+                        {language === 'en' ? 'Sources' : '经文来源'}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {message.passages.map((p, j) => (
+                          <div key={j} className="border-l-2 border-l-[#EF9F27] bg-[#F5F0E8] text-sm leading-relaxed px-3 py-2 text-gray-600">
+                            {p}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            )}
           </div>
         )}
         {loading && (
@@ -145,30 +181,6 @@ export default function Home() {
         {error && (
           <div className="bg-red-50 border border-red-100 text-red-600 rounded-lg px-4 py-3 text-sm mb-6">
             {error}
-          </div>
-        )}
-        {result && (
-          <div ref={answerRef}>
-            {/* answer card */}
-            <div className="bg-white border rounded-lg px-4 py-3 text-sm leading-relaxed prose prose-sm max-w-none prose-p:text-gray-800 prose-headings:text-gray-900 prose-strong:text-gray-900 prose-headings:text-base prose-headings:font-medium prose-p:my-1 prose-headings:my-2 prose-hr:my-2">
-              <ReactMarkdown>
-                {result?.answer}
-              </ReactMarkdown>
-            </div>
-            {result!.passages.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-                  {language === 'en' ? 'Sources' : '经文出处'}
-                </p>
-                <div className="flex flex-col gap-2">
-                  {result?.passages.map((p, i) => (
-                    <div key={i} className="border-l-2 border-l-[#EF9F27] bg-[#F5F0E8] text-sm leading-relaxed px-3 py-2 text-gray-600">
-                      {p}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -193,8 +205,8 @@ export default function Home() {
             onClick={submitHandler}
             disabled={!question.trim() || loading}
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${!question.trim() || loading
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-[#EF9F27] text-[#412402] cursor-pointer'
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-[#EF9F27] text-[#412402] cursor-pointer'
               }`}
           >
             ↑

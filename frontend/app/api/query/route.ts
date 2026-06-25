@@ -18,23 +18,27 @@ const index = pc.index(process.env.PINECONE_INDEX_NAME!)
 
 const rateLimit = new Ratelimit({
     redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(5, "1 h")
+    limiter: Ratelimit.slidingWindow(10, "30 m")
 })
 
 export async function POST(request: Request) {
     try {
+        const { question, messages = [] } = await request.json()
+        const isChinese = /[\u4e00-\u9fff]/.test(question)
+        const language = isChinese ? 'zh' : 'en'
+
         const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
         const { success } = await rateLimit.limit(ip)
 
         if (!success) {
             return NextResponse.json(
-                { error: 'You reached the limit of rate now. Please try it again later.' },
+                { error: isChinese 
+                    ? '您已达到使用限制，请稍后再试。'
+                    : 'You reached the limit of rate now. Please try it again later.' 
+                },
                 { status: 429 }
             )
         }
-
-        const data = await request.json()
-        const question = data.question
 
         if (!question) {
             return NextResponse.json(
@@ -43,15 +47,32 @@ export async function POST(request: Request) {
             )
         }
 
-        const response = await openai_client.embeddings.create({
+        const cleanMessages = messages.map(({ role, content } : { role: string, content: string}) => ({ role, content }))
+        // 1. rewrite the query if there is a conversation history
+        let searchQuery = question
+        if (messages.length > 0) {
+            const rewriteResponse = await claude_client.messages.create({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 200,
+                system: 'Rewrite the latest user question as a standalone search query that includes all necessary context from the conversation history. Return ONLY the rewritten query, nothing else.',
+                messages: [
+                    ...cleanMessages,
+                    { role: 'user', content: question }
+                ]
+            })
+            const rewriteBlock =  rewriteResponse.content[0]
+            if (rewriteBlock.type === 'text') {
+                searchQuery = rewriteBlock.text
+            }
+        }
+
+        // 2. pinecone retrieval using rewritten query
+        const embeddingResponse = await openai_client.embeddings.create({
             model: 'text-embedding-3-small',
-            input: question,
+            input: searchQuery,
             dimensions: 512
         })
-        const question_embedding = response.data[0].embedding
-
-        const isChinese = /[\u4e00-\u9fff]/.test(question)
-        const language = isChinese ? 'zh' : 'en'
+        const question_embedding = embeddingResponse.data[0].embedding
 
         const results = await index.query({
             vector: question_embedding,
@@ -87,16 +108,18 @@ export async function POST(request: Request) {
             ${chineseInstruction}
             `
 
-        const message = await claude_client.messages.create({
+        const answerReponse = await claude_client.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1024,
-            messages: [{
+            messages: [
+                ...cleanMessages, 
+            {
                 role: 'user',
                 content: prompt
             }]
         })
 
-        const block = message.content[0]
+        const block = answerReponse.content[0]
         let answer = ''
         if (block.type === 'text') {
             answer = block.text
